@@ -1,3 +1,5 @@
+// ProfilePage.jsx
+
 import React, { useEffect, useState, useContext } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { AuthContext } from '../context/AuthContext.jsx'
@@ -18,6 +20,7 @@ export default function ProfilePage() {
   const [posts, setPosts] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [isEditing, setIsEditing] = useState(false) // <-- State lifted here
 
   useEffect(() => {
     let mounted = true
@@ -55,37 +58,31 @@ export default function ProfilePage() {
     return () => { mounted = false }
   }, [id, navigate])
 
+  // Updated handler to also close the edit form
   const handleUserUpdate = (updatedUser) => {
     setUser(prev => ({ ...prev, ...updatedUser }))
+    setIsEditing(false) // <-- Close edit form on successful update
   }
 
   const handleAvatarUpdate = (newAvatarUrl) => {
     setUser(prevUser => prevUser ? ({ ...prevUser, avatarUrl: newAvatarUrl }) : prevUser)
   }
 
-  // Real-time socket listeners for post interactions
+  // ... (socket listeners and other handlers remain unchanged) ...
   useEffect(() => {
     if (!socket) return
-
     socket.on('postLiked', ({ postId, likes }) => {
-      console.log('👍 Post liked via Socket.IO:', { postId, likes })
       setPosts(prev => prev.map(p => p._id === postId ? { ...p, likes } : p))
     })
-
     socket.on('postDeleted', ({ postId }) => {
-      console.log('🗑️ Post deleted via Socket.IO:', postId)
       setPosts(prev => prev.filter(p => p._id !== postId))
     })
-
     socket.on('postUpdated', ({ postId, text, updatedAt }) => {
-      console.log('✏️ Post updated via Socket.IO:', { postId, text, updatedAt })
       setPosts(prev => prev.map(p =>
         p._id === postId ? { ...p, text, updatedAt } : p
       ))
     })
-
     socket.on('commentAdded', ({ postId, comment }) => {
-      console.log('💬 New comment via Socket.IO:', { postId, comment })
       setPosts(prev => prev.map(p => {
         if (p._id === postId) {
           const commentExists = (p.comments || []).some(c =>
@@ -99,9 +96,7 @@ export default function ProfilePage() {
         return p
       }))
     })
-
     socket.on('commentDeleted', ({ postId, commentId }) => {
-      console.log('🗑️ Comment deleted via Socket.IO:', { postId, commentId })
       setPosts(prev => prev.map(p => {
         if (p._id === postId) {
           return { ...p, comments: (p.comments || []).filter(c => c._id !== commentId) }
@@ -109,7 +104,6 @@ export default function ProfilePage() {
         return p
       }))
     })
-
     return () => {
       socket.off('postLiked')
       socket.off('postDeleted')
@@ -119,57 +113,40 @@ export default function ProfilePage() {
     }
   }, [socket])
 
-  // Like handler
   const handleLike = async (postId) => {
     try {
       const currentPost = posts.find(p => p._id === postId)
       if (!currentPost) return
-
       const userIdStr = currentUser?.id?.toString()
-
-      // Optimistic update
       setPosts(prev => prev.map(p => {
         if (p._id === postId) {
           const currentLikes = (p.likes || []).map(like =>
             typeof like === 'object' ? like._id?.toString?.() : like?.toString?.()
           )
-
           const isLiked = currentLikes.includes(userIdStr)
           let newLikes
-
           if (isLiked) {
             newLikes = currentLikes.filter(id => id !== userIdStr)
-            console.log('💔 Unliked post', newLikes)
           } else {
             newLikes = [...currentLikes, userIdStr]
-            console.log('❤️ Liked post', newLikes)
           }
-
           return { ...p, likes: newLikes }
         }
         return p
       }))
-
-      // Sync with server
       const { data } = await api.post(`/posts/${postId}/like`)
-      console.log('✅ Like API response:', data)
-
-      // Ensure consistent data format after server response
       setPosts(prev => prev.map(p =>
         p._id === postId
           ? { ...p, likes: (data.likes || []).map(id => id?._id?.toString?.() || id?.toString?.()) }
           : p
       ))
-
     } catch (err) {
       console.error('❌ Error liking post:', err)
-      // Reload posts on error
       const { data: allPosts } = await api.get('/posts')
       setPosts(Array.isArray(allPosts) ? allPosts.filter(p => p.author && (p.author._id === id || p.author === id || p.author._id === user._id)) : [])
     }
   }
 
-  // Comment handler
   const handleComment = async (postId, text) => {
     try {
       const tempComment = {
@@ -178,13 +155,10 @@ export default function ProfilePage() {
         author: { _id: currentUser.id, name: currentUser.name },
         createdAt: new Date()
       }
-
       setPosts(prev => prev.map(p =>
         p._id === postId ? { ...p, comments: [tempComment, ...(p.comments || [])] } : p
       ))
-
       const { data } = await api.post(`/posts/${postId}/comments`, { text: text.trim() })
-
       setPosts(prev => prev.map(p =>
         p._id === postId ? {
           ...p,
@@ -205,7 +179,6 @@ export default function ProfilePage() {
     }
   }
 
-  // Delete handler
   const handleDelete = async (postId) => {
     if (!confirm('Delete this post?')) return
     try {
@@ -217,20 +190,15 @@ export default function ProfilePage() {
     }
   }
 
-  // Edit handler
   const handleEdit = async (postId, newText) => {
     try {
-      // Optimistic update for immediate feedback
       setPosts(prev => prev.map(p =>
         p._id === postId ? { ...p, text: newText } : p
       ))
-
       await api.put(`/posts/${postId}`, { text: newText })
-      // Socket event will handle real-time sync for other users
     } catch (err) {
       console.error(err)
       alert('Failed to edit post')
-      // Reload posts on error
       const { data: allPosts } = await api.get('/posts')
       setPosts(Array.isArray(allPosts) ? allPosts.filter(p => p.author && (p.author._id === id || p.author === id || p.author._id === user._id)) : [])
     }
@@ -269,35 +237,44 @@ export default function ProfilePage() {
   return (
     <div className="max-w-5xl mx-auto space-y-8 px-4 py-8">
       
-      {/* --- Card 1: Profile Header --- */}
-      <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-100 flex flex-col md:flex-row gap-6">
-        
-        {/* Left: Avatar + Avatar Actions */}
-        <div className="flex-shrink-0 flex flex-col items-center md:items-start gap-4">
-          {isOwnProfile ? (
-            // This component renders the avatar AND its own upload/delete buttons
-            <ProfilePhotoUpload
-              userId={user._id}
-              currentAvatar={user.avatarUrl}
-              onAvatarUpdate={handleAvatarUpdate}
-            />
-          ) : (
-            // Static avatar display for other users
-            <div className="w-36 h-36 rounded-full overflow-hidden bg-gray-100 flex items-center justify-center border-4 border-white shadow-lg">
-              {user.avatarUrl ? (
-                <img src={user.avatarUrl} alt={user.name} className="w-full h-full object-cover" />
-              ) : (
-                <div className="text-4xl font-bold text-gray-400">
-                  {user.name?.[0]?.toUpperCase() || '👤'}
-                </div>
-              )}
-            </div>
-          )}
+      {/* --- CONDITIONAL RENDER: Edit Form OR Profile Header --- */}
+      {isEditing ? (
+        // --- Card 2: Edit Profile ---
+        <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-100">
+          <ProfileUpdate
+            user={user}
+            onUpdate={handleUserUpdate}
+            onCancel={() => setIsEditing(false)} // Pass cancel handler
+          />
         </div>
+      ) : (
+        // --- Card 1: Profile Header ---
+        <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-100 flex flex-col md:flex-row gap-6">
+          
+          {/* Left: Avatar + Avatar Actions */}
+          <div className="flex-shrink-0 flex flex-col items-center md:items-start gap-4">
+            {isOwnProfile ? (
+              <ProfilePhotoUpload
+                userId={user._id}
+                currentAvatar={user.avatarUrl}
+                onAvatarUpdate={handleAvatarUpdate}
+              />
+            ) : (
+              <div className="w-36 h-36 rounded-full overflow-hidden bg-gray-100 flex items-center justify-center border-4 border-white shadow-lg">
+                {user.avatarUrl ? (
+                  <img src={user.avatarUrl} alt={user.name} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="text-4xl font-bold text-gray-400">
+                    {user.name?.[0]?.toUpperCase() || '👤'}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
 
-        {/* Right: Profile Info + Stats + Share */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-4">
+          {/* Right: Profile Info + Stats + Share */}
+          <div className="flex-1 min-w-0">
+            
             {/* Info */}
             <div>
               <h1 className="text-2xl md:text-3xl font-semibold text-gray-900">{user.name}</h1>
@@ -306,38 +283,40 @@ export default function ProfilePage() {
                 Member since {new Date(user.createdAt).toLocaleDateString()}
               </p>
             </div>
-            
-            {/* Share Action Button */}
-            <div className="flex-shrink-0 flex flex-col gap-2">
+          
+            {/* Stats row */}
+            <div className="mt-6 flex gap-8 text-sm text-gray-700">
+              <div>
+                <div className="text-lg font-medium text-indigo-600">{posts.length}</div>
+                <div className="text-sm text-gray-400">Posts</div>
+              </div>
+            </div>
+
+            {/* Bio */}
+            {user.bio && (
+              <div className="mt-4 text-gray-700">
+                <p className="text-sm">{user.bio}</p>
+              </div>
+            )}
+
+            {/* --- NEW ACTIONS ROW (FIX 1) --- */}
+            <div className="mt-6 flex flex-wrap gap-2">
               <ShareProfile user={user} />
               {isOwnProfile && (
-                <div>
-                  <ProfileUpdate user={user} onUpdate={handleUserUpdate} />
-                </div>
+                <button
+                  onClick={() => setIsEditing(true)}
+                  className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg font-medium"
+                >
+                  Edit Profile
+                </button>
               )}
             </div>
           </div>
-
-          {/* Stats row */}
-          <div className="mt-6 flex gap-8 text-sm text-gray-700">
-            <div>
-              <div className="text-lg font-medium text-indigo-600">{posts.length}</div>
-              <div className="text-sm text-gray-400">Posts</div>
-            </div>
-            {/* you can add followers/following later here */}
-          </div>
-
-          {/* Bio */}
-          {user.bio && (
-            <div className="mt-4 text-gray-700">
-              <p className="text-sm">{user.bio}</p>
-            </div>
-          )}
         </div>
-      </div>
+      )}
 
 
-      {/* --- Card 3: Posts Section --- */}
+      {/* --- Card 3: Posts Section (Unchanged) --- */}
       <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-100">
         
         <h3 className="text-lg font-medium mb-4">Recent Posts</h3>
