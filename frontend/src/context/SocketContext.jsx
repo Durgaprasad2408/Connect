@@ -9,7 +9,7 @@ export function SocketProvider({ children }) {
 
   useEffect(() => {
     // Initialize socket connection
-    const socketInstance = io(import.meta.env.BACKEND_URL || 'http://localhost:5000', {
+const socketInstance = io(import.meta.env.VITE_BACKEND_URL || 'https://connect-5y7z.onrender.com', {
       transports: ['websocket', 'polling']
     });
 
