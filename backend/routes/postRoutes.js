@@ -253,6 +253,52 @@ router.get("/", async (req, res) => {
 });
 
 /**
+ * Get single post by ID
+ */
+router.get("/:id", async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.id)
+      .populate("author", "name _id avatarUrl")
+      .populate("comments.author", "name _id avatarUrl");
+
+    if (!post) {
+      return res.status(404).json({ error: "Post not found" });
+    }
+
+    // Sort comments in reverse chronological order (newest first)
+    if (post.comments && post.comments.length > 0) {
+      post.comments.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    }
+
+    // Normalize all IDs before sending
+    const normalized = {
+      ...post.toObject(),
+      _id: idStr(post._id),
+      author: post.author ? {
+        _id: idStr(post.author._id),
+        name: post.author.name,
+        avatarUrl: post.author.avatarUrl
+      } : post.author,
+      likes: (post.likes || []).map(idStr),
+      comments: (post.comments || []).map(c => ({
+        ...c.toObject(),
+        _id: idStr(c._id),
+        author: c.author ? {
+          _id: idStr(c.author._id),
+          name: c.author.name,
+          avatarUrl: c.author.avatarUrl
+        } : c.author
+      }))
+    };
+
+    res.json(normalized);
+  } catch (err) {
+    console.error("Error fetching single post:", err);
+    res.status(500).json({ error: "Failed to fetch post", details: err.message });
+  }
+});
+
+/**
  * Edit post
  */
 router.put("/:id", requireAuth, async (req, res) => {
