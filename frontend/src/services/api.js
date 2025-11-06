@@ -1,7 +1,7 @@
 // ES Module
 import axios from 'axios'
 
-const API_BASE = import.meta.env.VITE_BACKEND_URL || 'https://connect-5y7z.onrender.com'
+const API_BASE = (import.meta.env.VITE_BACKEND_URL || 'https://connect-5y7z.onrender.com') + '/api'
 
 let accessToken = null
 export function setAccessToken(token) { accessToken = token }
