@@ -244,8 +244,8 @@ export default function FeedPage() {
 
       {/* Custom Delete Confirmation Modal - Non-blocking */}
       {deleteConfirm.show && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-sm mx-4">
+        <div className="fixed inset-0 bg-transparent bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white border-2 rounded-lg p-6 max-w-sm mx-4">
             <h3 className="text-lg font-medium text-gray-900 mb-4">Delete Post</h3>
             <p className="text-gray-600 mb-6">Are you sure you want to delete this post? This action cannot be undone.</p>
             <div className="flex gap-3 justify-end">
