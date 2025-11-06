@@ -9,7 +9,7 @@ export function SocketProvider({ children }) {
 
   useEffect(() => {
     // Initialize socket connection
-    const socketInstance = io('http://localhost:5000', {
+    const socketInstance = io(import.meta.env.BACKEND_URL || 'http://localhost:5000', {
       transports: ['websocket', 'polling']
     });
 
