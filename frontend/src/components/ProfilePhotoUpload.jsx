@@ -79,7 +79,7 @@ export default function ProfilePhotoUpload({ userId, currentAvatar, onAvatarUpda
       {/* Avatar Display */}
       <div className="flex items-center justify-center">
         <div className="relative group">
-          <div className="w-36 h-36 rounded-full overflow-hidden bg-gray-100 flex items-center justify-center text-5xl font-semibold text-gray-400 shadow-md transition-all duration-200 group-hover:scale-105">
+          <div className="w-41 h-41 rounded-full overflow-hidden bg-gray-100 flex items-center justify-center text-5xl font-semibold text-gray-400 shadow-md transition-all duration-200 group-hover:scale-105">
             {currentAvatar ? (
               <img
                 src={currentAvatar}
@@ -105,7 +105,7 @@ export default function ProfilePhotoUpload({ userId, currentAvatar, onAvatarUpda
         <button
           onClick={triggerFileInput}
           disabled={isUploading}
-          className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-5 py-2.5 rounded-lg font-semibold shadow-md transition-all duration-150"
+          className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-5 py-2 rounded-lg font-semibold shadow-md transition-all duration-150"
         >
           {currentAvatar ? "Change Photo" : "Upload Photo"}
         </button>
@@ -114,7 +114,7 @@ export default function ProfilePhotoUpload({ userId, currentAvatar, onAvatarUpda
           <button
             onClick={deleteAvatar}
             disabled={isUploading}
-            className="bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white px-5 py-2.5 rounded-lg font-semibold shadow-md transition-all duration-150"
+            className="bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white px-5 py-2 rounded-lg font-semibold shadow-md transition-all duration-150"
           >
             Delete
           </button>
