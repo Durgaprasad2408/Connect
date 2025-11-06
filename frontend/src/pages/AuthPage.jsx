@@ -1,12 +1,33 @@
-import { useContext, useState } from 'react'
+import { useContext, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AuthContext } from '../context/AuthContext'
 
 const AuthPage = () => {
   const [isSignup, setIsSignup] = useState(false)
   const [form, setForm] = useState({ name: '', email: '', password: '' })
-  const { login, signup } = useContext(AuthContext)
+  const { user, login, signup, loading } = useContext(AuthContext)
   const navigate = useNavigate()
+
+  // Auto-redirect logged-in users to feed
+  useEffect(() => {
+    if (!loading && user) {
+      navigate('/feed', { replace: true })
+    }
+  }, [user, loading, navigate])
+
+  // Show loading while checking auth status
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-[80vh]">
+        <div className="text-center">Loading...</div>
+      </div>
+    )
+  }
+
+  // Don't render auth form if user is already logged in
+  if (user) {
+    return null
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
