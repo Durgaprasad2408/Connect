@@ -1,7 +1,7 @@
 // ES Module
 import axios from 'axios'
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL
+const API_BASE = import.meta.env.VITE_BACKEND_URL || '/api'
 
 let accessToken = null
 export function setAccessToken(token) { accessToken = token }
@@ -30,10 +30,10 @@ api.interceptors.response.use(
       original._retry = true
       try {
         // call refresh endpoint using cookie
-        const refreshResp = await axios.get(`${API_BASE.replace(/\/api$/, '')}/api/auth/refresh`, {
+        const refreshResp = await axios.get(`${API_BASE}/auth/refresh`, {
           withCredentials: true,
         })
-        const { accessToken: newToken, user } = refreshResp.data
+        const { accessToken: newToken } = refreshResp.data
         setAccessToken(newToken)
         // retry original request with new token
         original.headers.Authorization = `Bearer ${newToken}`
