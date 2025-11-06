@@ -37,27 +37,23 @@ router.post("/login", async (req, res) => {
     const accessToken = createAccessToken(user);
     await RefreshToken.create({ tokenId, user: user._id });
 
-    res.cookie("refresh_token", refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: 30 * 24 * 60 * 60 * 1000,
+    res.json({
+      accessToken,
+      refreshToken,
+      user: { id: user._id, name: user.name, avatarUrl: user.avatarUrl }
     });
-
-    res.json({ accessToken, user: { id: user._id, name: user.name, avatarUrl: user.avatarUrl } });
   } catch (err) {
     res.status(500).json({ error: "Server error" });
   }
 });
 
 // Refresh
-router.get("/refresh", async (req, res) => {
+router.post("/refresh", async (req, res) => {
   try {
-    const token = req.cookies.refresh_token;
-    if (!token) return res.status(401).json({ error: "No refresh token" });
+    const { refreshToken } = req.body;
+    if (!refreshToken) return res.status(401).json({ error: "No refresh token provided" });
     
-    const payload = jwt.verify(token, process.env.REFRESH_SECRET);
+    const payload = jwt.verify(refreshToken, process.env.REFRESH_SECRET);
     
     // Validate that payload.sub is a valid ObjectId
     if (!payload.sub || !mongoose.Types.ObjectId.isValid(payload.sub)) {
@@ -70,11 +66,23 @@ router.get("/refresh", async (req, res) => {
     const user = await User.findById(payload.sub);
     if (!user) return res.status(401).json({ error: "User not found" });
     
-    const accessToken = createAccessToken(user);
-    res.json({ accessToken, user: { id: user._id, name: user.name, avatarUrl: user.avatarUrl } });
+    const newAccessToken = createAccessToken(user);
+    
+    // Optionally generate a new refresh token for rotation
+    const newTokenId = crypto.randomBytes(16).toString("hex");
+    const newRefreshToken = createRefreshToken(user, newTokenId);
+    
+    // Replace old refresh token with new one
+    await RefreshToken.deleteOne({ tokenId: payload.tid });
+    await RefreshToken.create({ tokenId: newTokenId, user: user._id });
+    
+    res.json({
+      accessToken: newAccessToken,
+      newRefreshToken,
+      user: { id: user._id, name: user.name, avatarUrl: user.avatarUrl }
+    });
   } catch (error) {
     console.error("Refresh error:", error);
-    res.clearCookie("refresh_token", { path: "/" });
     res.status(401).json({ error: "Invalid refresh token" });
   }
 });
@@ -82,14 +90,14 @@ router.get("/refresh", async (req, res) => {
 // Logout
 router.post("/logout", async (req, res) => {
   try {
-    const token = req.cookies.refresh_token;
-    if (token) {
-      const payload = jwt.verify(token, process.env.REFRESH_SECRET);
+    const { refreshToken } = req.body;
+    if (refreshToken) {
+      const payload = jwt.verify(refreshToken, process.env.REFRESH_SECRET);
       await RefreshToken.deleteMany({ tokenId: payload.tid });
     }
-    res.clearCookie("refresh_token", { path: "/" });
     res.json({ message: "Logged out" });
-  } catch {
+  } catch (error) {
+    console.error("Logout error:", error);
     res.json({ message: "Logged out" });
   }
 });

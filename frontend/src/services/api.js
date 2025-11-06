@@ -1,6 +1,24 @@
 // ES Module
 import axios from 'axios'
 
+// Storage keys
+const REFRESH_TOKEN_KEY = 'refresh_token'
+
+// Refresh token management
+export function setRefreshToken(token) {
+  localStorage.setItem(REFRESH_TOKEN_KEY, token)
+}
+
+export function getRefreshToken() {
+  return localStorage.getItem(REFRESH_TOKEN_KEY)
+}
+
+export function clearRefreshToken() {
+  localStorage.removeItem(REFRESH_TOKEN_KEY)
+}
+
+export { REFRESH_TOKEN_KEY }
+
 const API_BASE = (import.meta.env.VITE_BACKEND_URL || 'https://connect-5y7z.onrender.com') + '/api'
 
 let accessToken = null
@@ -9,7 +27,7 @@ export function clearAccessToken() { accessToken = null }
 
 const api = axios.create({
   baseURL: API_BASE,
-  withCredentials: true,
+  withCredentials: false,
   headers: { 'Accept': 'application/json' },
 })
 
@@ -29,18 +47,21 @@ api.interceptors.response.use(
     if (err.response && err.response.status === 401) {
       original._retry = true
       try {
-        // call refresh endpoint using cookie
-        const refreshResp = await axios.get(`${API_BASE}/auth/refresh`, {
-          withCredentials: true,
-        })
-        const { accessToken: newToken } = refreshResp.data
+        // call refresh endpoint using localStorage refresh token
+        const refreshToken = getRefreshToken()
+        const refreshResp = await axios.post(`${API_BASE}/auth/refresh`, { refreshToken })
+        const { accessToken: newToken, newRefreshToken } = refreshResp.data
         setAccessToken(newToken)
+        if (newRefreshToken) {
+          setRefreshToken(newRefreshToken)
+        }
         // retry original request with new token
         original.headers.Authorization = `Bearer ${newToken}`
         return api(original)
       } catch (refreshErr) {
-        // refresh failed, clear token
+        // refresh failed, clear tokens
         clearAccessToken()
+        clearRefreshToken()
         return Promise.reject(refreshErr)
       }
     }
