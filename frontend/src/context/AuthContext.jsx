@@ -20,6 +20,7 @@ export function AuthProvider({ children }) {
         setAccessToken(accessToken)
         setUser(user)
       } catch (err) {
+        console.log('Token refresh failed, user needs to login')
         setUser(null)
         clearAccessToken()
       } finally {

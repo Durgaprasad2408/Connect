@@ -41,7 +41,7 @@ router.post("/login", async (req, res) => {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
-      path: "/api/auth/refresh",
+      path: "/",
       maxAge: 30 * 24 * 60 * 60 * 1000,
     });
 
@@ -74,7 +74,7 @@ router.get("/refresh", async (req, res) => {
     res.json({ accessToken, user: { id: user._id, name: user.name, avatarUrl: user.avatarUrl } });
   } catch (error) {
     console.error("Refresh error:", error);
-    res.clearCookie("refresh_token", { path: "/api/auth/refresh" });
+    res.clearCookie("refresh_token", { path: "/" });
     res.status(401).json({ error: "Invalid refresh token" });
   }
 });
@@ -87,7 +87,7 @@ router.post("/logout", async (req, res) => {
       const payload = jwt.verify(token, process.env.REFRESH_SECRET);
       await RefreshToken.deleteMany({ tokenId: payload.tid });
     }
-    res.clearCookie("refresh_token", { path: "/api/auth/refresh" });
+    res.clearCookie("refresh_token", { path: "/" });
     res.json({ message: "Logged out" });
   } catch {
     res.json({ message: "Logged out" });
