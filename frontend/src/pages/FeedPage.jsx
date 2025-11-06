@@ -31,6 +31,12 @@ export default function FeedPage() {
 
     socket.on('newPost', (newPost) => {
       console.log('🆕 New post received via Socket.IO:', newPost)
+      // Avoid duplicate posts: don't add post if current user just created it
+      const isCurrentUserPost = newPost.author?._id === user?.id
+      if (isCurrentUserPost) {
+        console.log('⚠️ Skipping duplicate post from current user')
+        return
+      }
       setPosts(prev => [newPost, ...prev])
     })
 
