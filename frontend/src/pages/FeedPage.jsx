@@ -8,6 +8,7 @@ import PostCard from '../components/PostCard.jsx'
 export default function FeedPage() {
   const [posts, setPosts] = useState([])
   const [loading, setLoading] = useState(true)
+  const [deleteConfirm, setDeleteConfirm] = useState({ show: false, postId: null })
   const { user } = useContext(AuthContext)
   const { socket, connected } = useSocket()
 
@@ -181,14 +182,25 @@ export default function FeedPage() {
   }
 
   const handleDelete = async (postId) => {
-    if (!confirm('Delete this post?')) return
+    // Show confirmation state instead of blocking confirm()
+    setDeleteConfirm({ show: true, postId })
+  }
+
+  const confirmDelete = async () => {
+    const { postId } = deleteConfirm
     try {
       await api.delete(`/posts/${postId}`)
       setPosts(prev => prev.filter(p => p._id !== postId))
+      setDeleteConfirm({ show: false, postId: null })
     } catch (err) {
       console.error(err)
       alert('Delete failed')
+      setDeleteConfirm({ show: false, postId: null })
     }
+  }
+
+  const cancelDelete = () => {
+    setDeleteConfirm({ show: false, postId: null })
   }
 
   const handleEdit = async (postId, newText) => {
@@ -228,6 +240,30 @@ export default function FeedPage() {
             onComment={handleComment}
           />
         ))
+      )}
+
+      {/* Custom Delete Confirmation Modal - Non-blocking */}
+      {deleteConfirm.show && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-sm mx-4">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Delete Post</h3>
+            <p className="text-gray-600 mb-6">Are you sure you want to delete this post? This action cannot be undone.</p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={cancelDelete}
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="px-4 py-2 text-white bg-red-600 rounded-md hover:bg-red-700 transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
